@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kc-sdk-python"
+version = "0.1.0"
+description = "Python SDK / client for the Kvindo Cloud API"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Kvindo" }]
+keywords = ["kvindo", "cloud", "sdk", "client", "api"]
+dependencies = [
+    "requests",
+    "marshmallow-dataclass",
+    "py-ulid",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+]
+
+[project.urls]
+Homepage = "https://github.com/Kvindo/kc-sdk-python"
+Repository = "https://github.com/Kvindo/kc-sdk-python"
+
+[tool.setuptools]
+py-modules = ["kc_api"]
