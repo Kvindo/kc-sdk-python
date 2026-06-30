@@ -4,28 +4,61 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kc-sdk-python"
-version = "0.1.0"
-description = "Python SDK / client for the Kvindo Cloud API"
+version = "0.2.0"
+description = "Kvindo Cloud Python SDK — typed client for managing Kvindo Cloud infrastructure (VMs, S3, Kubernetes, load balancers, VPCs, PostgreSQL) via the REST API"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Kvindo" }]
-keywords = ["kvindo", "cloud", "sdk", "client", "api"]
+keywords = [
+    "kvindo",
+    "kvindo-cloud",
+    "cloud",
+    "cloud-api",
+    "iaas",
+    "infrastructure",
+    "infrastructure-as-code",
+    "sdk",
+    "api-client",
+    "rest-api",
+    "devops",
+    "vm",
+    "kubernetes",
+    "s3",
+    "object-storage",
+    "load-balancer",
+    "vpc",
+    "postgresql",
+]
 dependencies = [
     "requests",
     "marshmallow-dataclass",
     "py-ulid",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Internet",
+    "Typing :: Typed",
 ]
 
 [project.urls]
-Homepage = "https://github.com/Kvindo/kc-sdk-python"
+Homepage = "https://cloud.kvindo.com"
 Repository = "https://github.com/Kvindo/kc-sdk-python"
+Documentation = "https://github.com/Kvindo/kc-sdk-python#readme"
+"Bug Tracker" = "https://github.com/Kvindo/kc-sdk-python/issues"
 
 [tool.setuptools]
 py-modules = ["kc_api"]

@@ -1,10 +1,15 @@
-# kc-sdk-python
+# kc-sdk-python — Kvindo Cloud Python SDK
 
-Python SDK / client for the **Kvindo Cloud API**.
+[![PyPI version](https://img.shields.io/pypi/v/kc-sdk-python)](https://pypi.org/project/kc-sdk-python/)
+[![Python versions](https://img.shields.io/pypi/pyversions/kc-sdk-python)](https://pypi.org/project/kc-sdk-python/)
+[![License: MIT](https://img.shields.io/pypi/l/kc-sdk-python)](LICENSE)
 
-A thin, typed client over the REST API: one resource client per resource type
-(VMs, volumes, load balancers, kubernetes, S3, VPCs, …), all sharing the same
-create / read / update / delete / list contract.
+Official **Python SDK / client for the [Kvindo Cloud](https://cloud.kvindo.com) API** — manage
+cloud infrastructure as code from Python: VMs, volumes, S3 object storage, Kubernetes, load
+balancers, VPCs, VPNs, and managed PostgreSQL.
+
+A thin, typed client over the REST API: one resource client per resource type, all sharing the
+same create / read / update / delete / list contract.
 
 ## Install
 
@@ -54,6 +59,14 @@ object carries `errorMessage` / `errorCode` (a typed `KcApi*ErrorCode`) which ar
 `client.load_balancers`, `client.vpcs`, `client.postgresql_standalones`,
 `client.folders`, `client.transactions`, … (the surface mirrors the official
 Kvindo Cloud API).
+
+## Related projects
+
+Part of the Kvindo Cloud developer toolchain:
+
+- **[kc CLI](https://github.com/Kvindo/kc-cli)** — kubectl-style command-line client for Kvindo Cloud.
+- **[terraform-provider-kvindo](https://github.com/Kvindo/terraform-provider-kvindo)** — Terraform provider ([Registry](https://registry.terraform.io/providers/kvindo/kvindo/latest)).
+- **[Kvindo Cloud console](https://cloud.kvindo.com)** — web UI and API.
 
 ## License
 
