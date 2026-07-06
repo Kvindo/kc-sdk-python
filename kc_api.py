@@ -520,13 +520,16 @@ class KcResourceClient:
 
         # Inject a ULID id when absent so the call is idempotent and the caller can
         # poll the returned requestId. Two body shapes are supported:
+        # py-ulid's ULID has no __str__/__repr__ override, so str(ULID()) yields
+        # "<ulid.ulid.ULID object at 0x...>" instead of the Crockford-base32 string the
+        # API requires — always use .generate() to get the actual string form.
         if "metadata" in data:
             # Envelope shape: id lives under metadata.
             if "id" not in data["metadata"] or not data["metadata"]["id"]:
-                data["metadata"]["id"] = str(ULID())
+                data["metadata"]["id"] = ULID().generate()
         elif "id" not in data or not data["id"]:
             # Flat shape: id at the top level.
-            data["id"] = str(ULID())
+            data["id"] = ULID().generate()
 
         url = f"{self.__api_url}/api/v1/{self.__resource_type}"
 
@@ -594,7 +597,6 @@ class KcClient:
     route_table_attachments: KcResourceClient
     route_table_routes: KcResourceClient
     security_groups: KcResourceClient
-    nat_gateways: KcResourceClient
 
     # Load balancer
     load_balancers: KcResourceClient
@@ -634,7 +636,6 @@ class KcClient:
     gitlabs: KcResourceClient
     gitlab_runners: KcResourceClient
     grafanas: KcResourceClient
-    victoria_metrics: KcResourceClient
     ollamas: KcResourceClient
 
     # IaM / org
@@ -698,7 +699,6 @@ class KcClient:
         self.route_table_attachments = _r("route-table-attachment")
         self.route_table_routes = _r("route-table-route")
         self.security_groups = _r("security-group")
-        self.nat_gateways = _r("nat-gateway")
 
         # Load balancer
         self.load_balancers = _r("loadbalancer")
@@ -738,7 +738,6 @@ class KcClient:
         self.gitlabs = _r("gitlab")
         self.gitlab_runners = _r("gitlab-runner")
         self.grafanas = _r("grafana")
-        self.victoria_metrics = _r("victoria-metrics")
         self.ollamas = _r("ollama")
 
         # IaM / org
