@@ -576,7 +576,7 @@ class KcClient:
 
     # Compute
     vms: KcResourceClient
-    vm_on_off_maintenance_actions: KcResourceClient
+    on_off_schedules: KcResourceClient
     vm_recurrent_command_maintenance_actions: KcResourceClient
     volumes: KcResourceClient
     volume_attachments: KcResourceClient
@@ -678,7 +678,7 @@ class KcClient:
 
         # Compute
         self.vms = _r("vm")
-        self.vm_on_off_maintenance_actions = _r("vm-on-off-maintenance-action")
+        self.on_off_schedules = _r("on-off-schedule")
         self.vm_recurrent_command_maintenance_actions = _r("vm-recurrent-command-maintenance-action")
         self.volumes = _r("volume")
         self.volume_attachments = _r("volume-attachment")
