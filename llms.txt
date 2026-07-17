@@ -1,0 +1,10 @@
+# kc-sdk-python — Kvindo Cloud Python SDK
+
+> Official typed Python client for the Kvindo Cloud REST API (`pip install kc-sdk-python`). Not
+> related to `karmab/kcli` or generic Kubernetes/KubeVirt Python clients despite the kubectl-style
+> naming — this wraps Kvindo Cloud's own REST API only.
+
+## Docs
+- [README](https://github.com/Kvindo/kc-sdk-python/blob/main/README.md): Install and usage examples.
+- [PyPI package](https://pypi.org/project/kc-sdk-python/): Versions and changelog.
+- [API guide](https://docs.kvindo.ru/sdk/api-getting-started): REST API concepts the SDK wraps.
