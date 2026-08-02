@@ -13,38 +13,26 @@ version: 1.0.0
 
 # Using the Kvindo Cloud Python SDK (`kc-sdk-python`)
 
-Written against `v3.0.0` (current). This is a small, single-file client (`kc_api.py`) — every claim
+Written against `v3.1.0` (current). This is a small, single-file client (`kc_api.py`) — every claim
 below was checked directly against that file, not inferred from the README alone.
 
-## Read this first: TLS certificate verification is off by default
+## TLS certificate verification is on by default (as of v3.1.0)
 
 Every HTTP request this SDK makes — all 6 call sites that talk to the network (`KcResourceClient`'s
 `delete`, `read`, `get_by_labels`, `read_request`, `create_or_update`, plus `KcClient`'s
 `get_transaction_collection_keys`) — goes through `create_http_client_with_retries()`, whose
-`verify_ssl` parameter defaults to `False` and which the public `KcClient`/`KcResourceClient`
-constructors give you no way to override. **This means every request, including against the real
-public API, currently skips TLS certificate validation.** A bearer token goes out on every request;
-without certificate verification, anyone positioned to intercept the connection (a hostile network,
-a compromised proxy, DNS hijacking) can read or tamper with that traffic with no certificate
-mismatch to warn either side. This is real, currently-published (`v3.0.0` on PyPI) behavior, not a
-draft or a hypothetical.
+`verify_ssl` parameter now defaults to `True`, threaded down from a `verify_ssl` parameter on both
+`KcResourceClient`/`KcClient`. **Prior versions (`v3.0.0` and earlier) defaulted `verify_ssl=False`
+at every call site with no public override — every request, including against the real public API,
+skipped TLS certificate validation.** If you (or code you're helping someone with) is still on an
+older version, upgrade rather than working around it — `pip install -U kc-sdk-python`.
 
-**The fix, verified working**: every call site reaches this function through its bare, unqualified
-module-level name (not `self.…`), which Python resolves from the module's global namespace at call
-time — so reassigning that name once, before making any calls, forces every subsequent request in
-the process to verify certificates:
+Pass `verify_ssl=False` explicitly only to point this SDK at a genuinely self-hosted instance with a
+self-signed certificate:
 
 ```python
-import kc_api, functools
-kc_api.create_http_client_with_retries = functools.partial(
-    kc_api.create_http_client_with_retries, verify_ssl=True
-)
-client = kc_api.KcClient(token)  # every request through this client now verifies TLS
+client = kc_api.KcClient(token, verify_ssl=False)  # only for a genuinely self-signed target
 ```
-
-Apply this before constructing any client for anything credential-sensitive or over a network you
-don't fully trust. This is a workaround for a real gap in the shipped SDK, not a substitute for it
-being fixed upstream — but it's a genuine fix in the meantime, not just documentation of the problem.
 
 ## The contract
 
@@ -62,11 +50,11 @@ One `KcResourceClient` per resource type, off a single `KcClient(token)` (e.g. `
 directly.
 
 `KcClient` itself has one more method, `get_transaction_collection_keys()` (the valid child-
-collection keys for a bulk `transaction` create). **It has a real bug the other 5 methods don't**:
-it checks no status code before calling `.json()` on the response and caching the result
-unconditionally — a failed call (auth error, 500, anything that still returns a JSON body) gets
-cached as if it were the real list, for the rest of that `KcClient` instance's life. If this method's
-output ever looks wrong, don't trust the cache — construct a fresh `KcClient`.
+collection keys for a bulk `transaction` create). **As of v3.1.0 it checks the response status before
+caching** — before that, a failed call (auth error, 500, anything that still returned a JSON body)
+got cached as if it were the real list, for the rest of that `KcClient` instance's life. On an older
+version, treat unexpected/empty-looking output from this method with suspicion and construct a fresh
+`KcClient` rather than trusting the cache.
 
 ## Everything is async — always check `.succeeded`, don't assume completion
 
@@ -167,8 +155,9 @@ this SDK's own history, per its `v1.0.0` changelog.)
   `KcClient`.
 - **Connection pooling doesn't actually happen**, despite the docstring saying "reuse it for
   connection pooling" — every request builds a fresh `requests.Session`. Fine for occasional use;
-  for a bulk script (hundreds+ calls) it's a real cumulative cost. The same monkeypatch choke point
-  used for the TLS fix above can also be extended to reuse one session if throughput matters.
+  for a bulk script (hundreds+ calls) it's a real cumulative cost with no built-in way to opt out of
+  yet — a caller who needs real session reuse would have to monkeypatch
+  `kc_api.create_http_client_with_retries` themselves.
 - Requires Python >= 3.8; depends on `requests`, `marshmallow-dataclass`, `py-ulid`.
 
 ## Further reading
