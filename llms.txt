@@ -8,3 +8,4 @@
 - [README](https://github.com/Kvindo/kc-sdk-python/blob/main/README.md): Install and usage examples.
 - [PyPI package](https://pypi.org/project/kc-sdk-python/): Versions and changelog.
 - [API guide](https://docs.kvindo.ru/sdk/api-getting-started): REST API concepts the SDK wraps.
+- [Claude Code skill](https://github.com/Kvindo/kc-sdk-python/blob/main/.claude/skills/kvindo-python-sdk/SKILL.md): Operational guide for an AI agent scripting Kvindo Cloud with this SDK.

@@ -11,6 +11,10 @@ balancers, VPCs, VPNs, and managed PostgreSQL.
 A thin, typed client over the REST API: one resource client per resource type, all sharing the
 same create / read / update / delete / list contract.
 
+> **Using Claude Code?** This repo ships a [Claude Code skill](.claude/skills/kvindo-python-sdk/SKILL.md)
+> that teaches Claude how to script Kvindo Cloud with this SDK — clone this repo (or otherwise have
+> it on disk) and open Claude Code there to pick it up automatically.
+
 ## Install
 
 ```sh
@@ -67,6 +71,7 @@ Part of the Kvindo Cloud developer toolchain:
 - **[kc CLI](https://github.com/Kvindo/kc-cli)** — kubectl-style command-line client for Kvindo Cloud.
 - **[terraform-provider-kvindo](https://github.com/Kvindo/terraform-provider-kvindo)** — Terraform provider ([Registry](https://registry.terraform.io/providers/kvindo/kvindo/latest)).
 - **[Kvindo Cloud console](https://cloud.kvindo.com)** — web UI and API.
+- **[Claude Code skill](.claude/skills/kvindo-python-sdk/SKILL.md)** — lets Claude script Kvindo Cloud with this SDK conversationally.
 
 ## License
 
