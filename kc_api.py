@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 # requests, marshmallow-dataclass and py-ulid.
 def create_http_client_with_retries(
     retry_statuses=[500, 502, 503, 504, 520, 521],
-    verify_ssl: bool = False,
+    verify_ssl: bool = True,
 ) -> requests.Session:
     """Build a `requests.Session` that retries idempotent failures with backoff.
 
@@ -55,8 +55,10 @@ def create_http_client_with_retries(
             server-side; 520 = web server returned an unknown error;
             521 = origin down (Cloudflare-specific).
         verify_ssl: enable/disable TLS certificate verification. Defaults to
-            False because internal/dev endpoints use self-signed certs; pass
-            True against public prod.
+            True — every real Kvindo Cloud API host (dev and public prod) has
+            a valid, publicly-trusted certificate. Pass False only to point
+            this SDK at a genuinely self-hosted instance with a self-signed
+            cert.
 
     Returns:
         A configured `requests.Session` (reuse it for connection pooling).
@@ -304,6 +306,7 @@ class KcResourceClient:
         token: str,
         api_url: str = "https://cloud-api.kvindo.ru",
         log_extra: dict = None,
+        verify_ssl: bool = True,
     ):
         """
         Args:
@@ -311,11 +314,16 @@ class KcResourceClient:
             token: the bearer token; a leading "Bearer " prefix is stripped if present.
             api_url: base URL of the Cloud API (no trailing slash).
             log_extra: optional dict merged into every debug log record's `extra`.
+            verify_ssl: enable/disable TLS certificate verification for every
+                request this client makes. Defaults to True; pass False only
+                to point this SDK at a genuinely self-hosted instance with a
+                self-signed cert.
         """
         self.__token = token.replace("Bearer ", "")
         self.__resource_type = resource_type
         self.__api_url = api_url
         self.__log_extra = log_extra if log_extra is not None else {}
+        self.__verify_ssl = verify_ssl
 
     def __headers(self) -> dict:
         """Standard auth + content-type headers for every request."""
@@ -342,7 +350,7 @@ class KcResourceClient:
         """
         url = f"{self.__api_url}/api/v1/{self.__resource_type}/{id}"
 
-        response = create_http_client_with_retries().delete(url, headers=self.__headers())
+        response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).delete(url, headers=self.__headers())
 
         logger.debug(
             f"Got {response.status_code} status code while making request DELETE {url}\nResponse body: {response.text}",
@@ -376,7 +384,7 @@ class KcResourceClient:
         """
         url = f"{self.__api_url}/api/v1/{self.__resource_type}/{id}"
 
-        response = create_http_client_with_retries().get(url, headers=self.__headers())
+        response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).get(url, headers=self.__headers())
 
         logger.debug(
             f"Got {response.status_code} status code while making request GET {url}\nResponse body: {response.text}",
@@ -418,7 +426,7 @@ class KcResourceClient:
         }
 
         url = create_url_with_query_params(url, params)
-        response = create_http_client_with_retries().get(url, headers=self.__headers())
+        response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).get(url, headers=self.__headers())
 
         logger.debug(
             f"Got {response.status_code} status code while making request GET {url}\nResponse body: {response.text}",
@@ -447,7 +455,7 @@ class KcResourceClient:
         """
         url = f"{self.__api_url}/api/v1/{self.__resource_type}/request/{request_id}"
 
-        response = create_http_client_with_retries().get(url, headers=self.__headers())
+        response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).get(url, headers=self.__headers())
 
         logger.debug(
             f"Got {response.status_code} status code while making request GET {url}\nResponse body: {response.text}",
@@ -533,7 +541,7 @@ class KcResourceClient:
 
         url = f"{self.__api_url}/api/v1/{self.__resource_type}"
 
-        response = create_http_client_with_retries().put(url, json=data, headers=self.__headers())
+        response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).put(url, json=data, headers=self.__headers())
 
         logger.debug(
             f"Got {response.status_code} status code while making request PUT {url}\nRequest body: {data}\nResponse body: {response.text}",
@@ -658,6 +666,7 @@ class KcClient:
         token: str,
         api_url: str = "https://cloud-api.kvindo.ru",
         log_extra: dict = None,
+        verify_ssl: bool = True,
     ):
         """
         Args:
@@ -665,16 +674,21 @@ class KcClient:
             api_url: base URL of the Cloud API (no trailing slash).
             log_extra: optional dict merged into every debug log record's `extra`;
                 propagated to every per-resource client.
+            verify_ssl: enable/disable TLS certificate verification for every
+                request this client (and every per-resource client it builds)
+                makes. Defaults to True; pass False only to point this SDK at
+                a genuinely self-hosted instance with a self-signed cert.
         """
         self.__log_extra = log_extra if log_extra is not None else {}
         self.__token = token.replace("Bearer ", "")
         self.__api_url = api_url
+        self.__verify_ssl = verify_ssl
         # Cached response of get_transaction_collection_keys (lazy, fetched once).
         self._transaction_collection_keys = None
 
         def _r(resource_type: str) -> KcResourceClient:
-            """Build a per-type client sharing this client's token/url/log_extra."""
-            return KcResourceClient(resource_type, token, api_url, log_extra)
+            """Build a per-type client sharing this client's token/url/log_extra/verify_ssl."""
+            return KcResourceClient(resource_type, token, api_url, log_extra, verify_ssl)
 
         # Compute
         self.vms = _r("vm")
@@ -764,10 +778,22 @@ class KcClient:
 
         Returns:
             The raw list returned by the transaction-spec endpoint.
+
+        Raises:
+            Exception: on an unexpected HTTP status. Unlike the per-resource
+                methods, any non-200 here is treated as unhandled (this
+                endpoint has no typed error-code contract) — previously this
+                method cached whatever `.json()` returned regardless of status,
+                so a transient failure (e.g. an auth blip) got cached as if it
+                were the real key list, permanently, for this instance's life.
         """
         if self._transaction_collection_keys is None:
             url = f"{self.__api_url}/api/v1/internal/transaction-spec"
             headers = {"Authorization": f"Bearer {self.__token}"}
-            response = create_http_client_with_retries().get(url, headers=headers)
+            response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).get(url, headers=headers)
+            if response.status_code != 200:
+                raise Exception(
+                    f"Got {response.status_code} status code while making request GET {url}\nResponse body: {response.text}"
+                )
             self._transaction_collection_keys = response.json()
         return self._transaction_collection_keys

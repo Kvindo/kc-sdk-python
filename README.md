@@ -29,6 +29,9 @@ Dependencies: `requests`, `marshmallow-dataclass`, `py-ulid`.
 from kc_api import KcClient
 
 client = KcClient("YOUR_API_TOKEN")  # api_url defaults to https://cloud-api.kvindo.ru
+# TLS certificate verification is on by default (verify_ssl=True). Pass
+# verify_ssl=False only to point this SDK at a genuinely self-hosted instance
+# with a self-signed cert.
 
 # List (label-filtered, paginated)
 resp = client.vms.get_by_labels({"env": "prod"}, max_page_size=50)
