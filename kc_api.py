@@ -145,6 +145,10 @@ class KcApiModificationErrorCode(Enum):
     """deleteProtection=true; clear it before deleting."""
     BadData = "BadData"
     """Request was malformed."""
+    QuotaExceeded = "QuotaExceeded"
+    """The organization's quota for this resource type/parameter would be exceeded, counting
+    resources that are submitted but not yet reconciled ("holds"). Not retryable - the caller
+    must delete resources or raise the quota. HTTP 409."""
 
 
 @dataclass
@@ -287,7 +291,7 @@ class KcResourceGetByLabelsResponse(object):
 
 # HTTP statuses the API uses to carry a structured (deserializable) body. Anything
 # outside this set is an unexpected transport/server failure and is raised instead.
-_HANDLED_STATUS_CODES = [200, 400, 401, 403, 422]
+_HANDLED_STATUS_CODES = [200, 400, 401, 403, 409, 422]
 
 
 class KcResourceClient:
@@ -632,18 +636,13 @@ class KcClient:
     kubernetes_node_groups: KcResourceClient
     kubernetes_users: KcResourceClient
     kubernetes_user_roles: KcResourceClient
-    postgresqls: KcResourceClient
     postgresql_standalones: KcResourceClient
-    postgresql_node_groups: KcResourceClient
     postgresql_parameters_sets: KcResourceClient
-    etcd: KcResourceClient
-    etcd_node_group: KcResourceClient
     open_vpns: KcResourceClient
     open_vpn_users: KcResourceClient
     open_vpn_user_settings: KcResourceClient
     gitlabs: KcResourceClient
     gitlab_runners: KcResourceClient
-    grafanas: KcResourceClient
     ollamas: KcResourceClient
 
     # IaM / org
@@ -740,18 +739,13 @@ class KcClient:
         self.kubernetes_node_groups = _r("kubernetes-node-group")
         self.kubernetes_users = _r("kubernetes-user")
         self.kubernetes_user_roles = _r("kubernetes-user-role")
-        self.postgresqls = _r("postgresql")
         self.postgresql_standalones = _r("postgresql-standalone")
-        self.postgresql_node_groups = _r("postgresql-node-group")
         self.postgresql_parameters_sets = _r("postgresql-parameters-set")
-        self.etcd = _r("etcd")
-        self.etcd_node_group = _r("etcd-node-group")
         self.open_vpns = _r("open-vpn")
         self.open_vpn_users = _r("open-vpn-user")
         self.open_vpn_user_settings = _r("open-vpn-user-settings")
         self.gitlabs = _r("gitlab")
         self.gitlab_runners = _r("gitlab-runner")
-        self.grafanas = _r("grafana")
         self.ollamas = _r("ollama")
 
         # IaM / org
