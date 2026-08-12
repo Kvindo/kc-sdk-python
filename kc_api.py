@@ -644,6 +644,7 @@ class KcClient:
     gitlabs: KcResourceClient
     gitlab_runners: KcResourceClient
     ollamas: KcResourceClient
+    etcds: KcResourceClient
 
     # IaM / org
     folders: KcResourceClient
@@ -747,6 +748,7 @@ class KcClient:
         self.gitlabs = _r("gitlab")
         self.gitlab_runners = _r("gitlab-runner")
         self.ollamas = _r("ollama")
+        self.etcds = _r("etcd")
 
         # IaM / org
         self.folders = _r("folder")
