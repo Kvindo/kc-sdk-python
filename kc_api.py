@@ -645,6 +645,8 @@ class KcClient:
     gitlab_runners: KcResourceClient
     ollamas: KcResourceClient
     etcds: KcResourceClient
+    valkeys: KcResourceClient
+    valkey_parameters_sets: KcResourceClient
 
     # IaM / org
     folders: KcResourceClient
@@ -749,6 +751,8 @@ class KcClient:
         self.gitlab_runners = _r("gitlab-runner")
         self.ollamas = _r("ollama")
         self.etcds = _r("etcd")
+        self.valkeys = _r("valkey")
+        self.valkey_parameters_sets = _r("valkey-parameters-set")
 
         # IaM / org
         self.folders = _r("folder")
