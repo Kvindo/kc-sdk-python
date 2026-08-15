@@ -149,7 +149,22 @@ class KcApiModificationErrorCode(Enum):
     """The organization's quota for this resource type/parameter would be exceeded, counting
     resources that are submitted but not yet reconciled ("holds"). Not retryable - the caller
     must delete resources or raise the quota. HTTP 409."""
+    SubmitLockBusy = "SubmitLockBusy"
+    """The per-organization submit lock (QuotaSubmitLock) could not be acquired within its
+    budget window (concurrent submit contention for the same org - another create/modify/delete
+    was already in flight). Retryable - safe to retry the identical request, the lock exists
+    precisely to serialize this race. HTTP 422."""
 
+
+# All three response classes below mirror KvindoCloud.Api.Models.ApiModificationResponse -
+# marshmallow_dataclass's default Schema().load() raises ValidationError on any field the C#
+# side sends that isn't declared here (unknown = RAISE is the marshmallow default), so every
+# field ApiModificationResponse carries must have a matching one here or parsing crashes for
+# every caller of create/update/delete, not just the endpoint that happens to populate it.
+# (A retryAfterSeconds body field was added and removed again the same day for the synchronous
+# submit-time quota gate - it crashed every create/update/delete call for exactly this reason.
+# The retry hint is now carried as a real HTTP Retry-After response header instead, which this
+# marshmallow schema never sees, so there is nothing to mirror here for it.)
 
 @dataclass
 class KcResourceDeleteResponse(object):
