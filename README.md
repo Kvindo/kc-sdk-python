@@ -63,7 +63,7 @@ object carries `errorMessage` / `errorCode` (a typed `KcApi*ErrorCode`) which ar
 
 `KcClient` exposes one `KcResourceClient` per type, e.g. `client.vms`,
 `client.volumes`, `client.s3_buckets`, `client.kubernetes`,
-`client.load_balancers`, `client.vpcs`, `client.postgresql_standalones`,
+`client.load_balancers`, `client.vpcs`, `client.postgresql_parameters_sets`,
 `client.folders`, `client.transactions`, … (the surface mirrors the official
 Kvindo Cloud API).
 
