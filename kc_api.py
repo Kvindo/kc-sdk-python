@@ -154,6 +154,11 @@ class KcApiModificationErrorCode(Enum):
     budget window (concurrent submit contention for the same org - another create/modify/delete
     was already in flight). Retryable - safe to retry the identical request, the lock exists
     precisely to serialize this race. HTTP 422."""
+    TransactionDeleteLockBusy = "TransactionDeleteLockBusy"
+    """The per-organization Transaction-bundle delete lock could not be acquired within its
+    budget window (another Transaction delete for the same org was already in flight). Nothing
+    was deleted - retryable, safe to retry the identical delete request. Distinct from
+    SubmitLockBusy (a different lock guarding create/modify submits, not deletes). HTTP 422."""
 
 
 # All three response classes below mirror KvindoCloud.Api.Models.ApiModificationResponse -
