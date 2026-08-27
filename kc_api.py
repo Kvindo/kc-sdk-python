@@ -661,6 +661,7 @@ class KcClient:
     etcds: KcResourceClient
     valkeys: KcResourceClient
     valkey_parameters_sets: KcResourceClient
+    valkey_users: KcResourceClient
 
     # IaM / org
     folders: KcResourceClient
@@ -766,6 +767,7 @@ class KcClient:
         self.etcds = _r("etcd")
         self.valkeys = _r("valkey")
         self.valkey_parameters_sets = _r("valkey-parameters-set")
+        self.valkey_users = _r("valkey-user")
 
         # IaM / org
         self.folders = _r("folder")
