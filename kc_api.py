@@ -656,7 +656,10 @@ class KcClient:
     kubernetes_node_groups: KcResourceClient
     kubernetes_users: KcResourceClient
     kubernetes_user_roles: KcResourceClient
+    postgresqls: KcResourceClient
+    postgresql_databases: KcResourceClient
     postgresql_parameters_sets: KcResourceClient
+    postgresql_users: KcResourceClient
     open_vpns: KcResourceClient
     open_vpn_users: KcResourceClient
     open_vpn_user_settings: KcResourceClient
@@ -762,7 +765,10 @@ class KcClient:
         self.kubernetes_node_groups = _r("kubernetes-node-group")
         self.kubernetes_users = _r("kubernetes-user")
         self.kubernetes_user_roles = _r("kubernetes-user-role")
+        self.postgresqls = _r("postgresql")
+        self.postgresql_databases = _r("postgresql-database")
         self.postgresql_parameters_sets = _r("postgresql-parameters-set")
+        self.postgresql_users = _r("postgresql-user")
         self.open_vpns = _r("open-vpn")
         self.open_vpn_users = _r("open-vpn-user")
         self.open_vpn_user_settings = _r("open-vpn-user-settings")
