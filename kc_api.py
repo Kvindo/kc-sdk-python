@@ -313,6 +313,60 @@ class KcResourceGetByLabelsResponse(object):
 # outside this set is an unexpected transport/server failure and is raised instead.
 _HANDLED_STATUS_CODES = [200, 400, 401, 403, 409, 422]
 
+# Defaults for the SubmitLockBusy/TransactionDeleteLockBusy retry below - overridable per-call
+# for a caller that wants a shorter fail-fast budget (e.g. an interactive script) instead of
+# blocking like an async job worker would.
+_DEFAULT_LOCK_BUSY_RETRY_BUDGET_SECONDS = 1200  # ~20min, matches kc_svc_job.py's existing precedent
+_DEFAULT_LOCK_BUSY_RETRY_DELAY_SECONDS = 30      # fallback when Retry-After is absent/unparseable
+
+
+def _parse_retry_after_seconds(value) -> float:
+    """Parse an HTTP `Retry-After` header value.
+
+    This API only ever sends the RFC 9110 delta-seconds form (a plain integer string) -
+    see `CloudApiControllerBase.SetRetryAfterIfLockBusy` on the server side. Falls back to
+    the default delay on a missing or malformed header rather than raising, since a
+    busy-lock retry should never itself crash on a header-parsing edge case.
+    """
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        return _DEFAULT_LOCK_BUSY_RETRY_DELAY_SECONDS
+
+
+def _retry_while_lock_busy(perform_request, is_busy, retry_budget_seconds):
+    """Call `perform_request()` (returns `(requests.Response, parsed_result)`), retrying
+    while `is_busy(parsed_result)` is True, for up to `retry_budget_seconds` of wall-clock
+    time (measured end-to-end across the whole loop, including each `perform_request()`
+    call's own latency, not just time spent sleeping between attempts - a slow busy request
+    itself eats into the budget, which is deliberate: the contract is "give up trying after
+    this much real time has passed", not "sleep this much total"). Returns the last
+    `(response, parsed_result)` pair - either the first non-busy result, or the last busy
+    one once the budget is exhausted (never raises on exhaustion; exhaustion just means the
+    caller sees the same busy errorCode/errorMessage they'd have seen immediately before
+    this retry existed).
+
+    Any exception raised by `perform_request()` or `is_busy()` propagates immediately,
+    uncaught - a malformed response or a genuine HTTP failure is a different problem than
+    lock contention and must never be swallowed by a retry meant only for the latter.
+    """
+    deadline = time.monotonic() + retry_budget_seconds
+    attempt = 0
+    while True:
+        attempt += 1
+        response, result = perform_request()
+        if not is_busy(result):
+            return response, result
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return response, result
+        delay = min(_parse_retry_after_seconds(response.headers.get("Retry-After")), remaining)
+        logger.warning(
+            f"{result.errorCode} (attempt {attempt}), retrying in {delay:.0f}s "
+            f"({remaining:.0f}s left in retry budget)"
+        )
+        time.sleep(delay)
+
 
 class KcResourceClient:
     """Client for a single resource type of the Kvindo Cloud API.
@@ -357,13 +411,23 @@ class KcResourceClient:
             "Content-Type": "application/json-patch+json",
         }
 
-    def delete(self, id: str, wait=False) -> KcResourceDeleteResponse:
+    def delete(
+        self,
+        id: str,
+        wait=False,
+        transaction_delete_lock_retry_budget_seconds: float = _DEFAULT_LOCK_BUSY_RETRY_BUDGET_SECONDS,
+    ) -> KcResourceDeleteResponse:
         """Delete a resource by id (asynchronous).
 
         Args:
             id: id of the resource to delete.
             wait: if True, block (up to 300s) until the delete reconciles via
                 `wait_request_satisfied` before returning.
+            transaction_delete_lock_retry_budget_seconds: how long to keep retrying a
+                TransactionDeleteLockBusy response (only reachable when deleting a
+                `transaction` resource specifically) before giving up and returning it
+                as-is. Default ~20min. Pass 0 to disable retrying and get the immediate
+                fire-once behavior back.
 
         Returns:
             KcResourceDeleteResponse with `requestId` to poll, or `errorMessage`/
@@ -374,24 +438,30 @@ class KcResourceClient:
         """
         url = f"{self.__api_url}/api/v1/{self.__resource_type}/{id}"
 
-        response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).delete(url, headers=self.__headers())
+        def _do_delete():
+            response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).delete(url, headers=self.__headers())
+            logger.debug(
+                f"Got {response.status_code} status code while making request DELETE {url}\nResponse body: {response.text}",
+                extra=self.__log_extra,
+            )
+            if response.status_code not in _HANDLED_STATUS_CODES:
+                raise Exception(
+                    f"Got {response.status_code} status code while making request DELETE {url}\nResponse body: {response.text}"
+                )
+            return response, KcResourceDeleteResponse.Schema().load(response.json())
 
-        logger.debug(
-            f"Got {response.status_code} status code while making request DELETE {url}\nResponse body: {response.text}",
-            extra=self.__log_extra,
+        _, result = _retry_while_lock_busy(
+            _do_delete,
+            lambda r: r.errorCode == KcApiModificationErrorCode.TransactionDeleteLockBusy,
+            transaction_delete_lock_retry_budget_seconds,
         )
-
-        if response.status_code in _HANDLED_STATUS_CODES:
-            result: KcResourceDeleteResponse = KcResourceDeleteResponse.Schema().load(
-                response.json()
-            )
-            if wait:
-                self.wait_request_satisfied(result.requestId, 300)
-            return result
-        else:
-            raise Exception(
-                f"Got {response.status_code} status code while making request DELETE {url}\nResponse body: {response.text}"
-            )
+        # requestId is only set on a genuinely-accepted delete - a still-busy result after the
+        # retry budget is exhausted has requestId=None, and wait_request_satisfied(None, ...)
+        # would be a meaningless poll against a nonexistent request. Only wait on a real
+        # acceptance.
+        if wait and result.requestId is not None:
+            self.wait_request_satisfied(result.requestId, 300)
+        return result
 
     def read(self, id: str) -> KcResourceReadResponse:
         """Read a single resource by id.
@@ -528,7 +598,11 @@ class KcResourceClient:
 
         return result
 
-    def create_or_update(self, data: dict) -> KcResourceCreateResponse:
+    def create_or_update(
+        self,
+        data: dict,
+        submit_lock_retry_budget_seconds: float = _DEFAULT_LOCK_BUSY_RETRY_BUDGET_SECONDS,
+    ) -> KcResourceCreateResponse:
         """Create a resource, or update it if one with the same id already exists.
 
         Idempotent on the resource id: if no id is present in `data` (neither
@@ -540,6 +614,13 @@ class KcResourceClient:
             data: the resource body, either the kubectl-style envelope
                 ({"metadata": {...}, "spec": {...}}) or the flat shape. **Mutated
                 in place** to inject the generated id when absent.
+            submit_lock_retry_budget_seconds: how long to keep retrying a
+                SubmitLockBusy response (the per-organization submit lock losing a
+                concurrent-submit race - safe to retry the identical request, see
+                `KcApiModificationErrorCode.SubmitLockBusy`) before giving up and
+                returning it as-is. Default ~20min, matching kc_svc_job.py's own
+                retry budget for this same error. Pass 0 to disable retrying and get
+                the immediate fire-once behavior back.
 
         Returns:
             KcResourceCreateResponse with `requestId`/`resourceId`, or
@@ -565,19 +646,24 @@ class KcResourceClient:
 
         url = f"{self.__api_url}/api/v1/{self.__resource_type}"
 
-        response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).put(url, json=data, headers=self.__headers())
-
-        logger.debug(
-            f"Got {response.status_code} status code while making request PUT {url}\nRequest body: {data}\nResponse body: {response.text}",
-            extra=self.__log_extra,
-        )
-
-        if response.status_code in _HANDLED_STATUS_CODES:
-            return KcResourceCreateResponse.Schema().load(response.json())
-        else:
-            raise Exception(
-                f"Got {response.status_code} status code while making request PUT {url}\nRequest body: {data}\nResponse body: {response.text}"
+        def _do_put():
+            response = create_http_client_with_retries(verify_ssl=self.__verify_ssl).put(url, json=data, headers=self.__headers())
+            logger.debug(
+                f"Got {response.status_code} status code while making request PUT {url}\nRequest body: {data}\nResponse body: {response.text}",
+                extra=self.__log_extra,
             )
+            if response.status_code not in _HANDLED_STATUS_CODES:
+                raise Exception(
+                    f"Got {response.status_code} status code while making request PUT {url}\nRequest body: {data}\nResponse body: {response.text}"
+                )
+            return response, KcResourceCreateResponse.Schema().load(response.json())
+
+        _, result = _retry_while_lock_busy(
+            _do_put,
+            lambda r: r.errorCode == KcApiModificationErrorCode.SubmitLockBusy,
+            submit_lock_retry_budget_seconds,
+        )
+        return result
 
     def create(self, data: dict) -> KcResourceCreateResponse:
         """Left for compatibility! Use create_or_update instead.
@@ -587,13 +673,18 @@ class KcResourceClient:
         """
         return self.create_or_update(data)
 
-    def update(self, data: dict) -> KcResourceUpdateResponse:
+    def update(
+        self,
+        data: dict,
+        submit_lock_retry_budget_seconds: float = _DEFAULT_LOCK_BUSY_RETRY_BUDGET_SECONDS,
+    ) -> KcResourceUpdateResponse:
         """Left for compatibility! Use create_or_update instead.
 
         Args:
             data: see `create_or_update`.
+            submit_lock_retry_budget_seconds: see `create_or_update`.
         """
-        return self.create_or_update(data)
+        return self.create_or_update(data, submit_lock_retry_budget_seconds)
 
 
 class KcClient:
